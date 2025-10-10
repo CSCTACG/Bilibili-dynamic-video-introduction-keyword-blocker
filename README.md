@@ -22,7 +22,7 @@
    - [安装最新版脚本](https://raw.githubusercontent.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker/main/bilibili-dynamic-video-introduction-keyword-blocker.user.js)
 
 ### 方式二：手动安装
-1. 下载 [`Bilibili-dynamic-video-introduction-keyword-blocker.user.js`](https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker/blob/main/Bilibili-dynamic-video-introduction-keyword-blocker.user.js)
+1. 下载 [`Bilibili-dynamic-video-introduction-keyword-blocker.user.js`](https://raw.githubusercontent.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker/main/bilibili-dynamic-video-introduction-keyword-blocker.user.js)
 2. 双击文件或拖入浏览器 → Tampermonkey 自动弹出安装界面
 
 ##  使用指南
