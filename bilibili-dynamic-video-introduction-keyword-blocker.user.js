@@ -181,7 +181,6 @@
         try {
             const parsed = JSON.parse(input);
             if (!Array.isArray(parsed)) throw new Error('关键词JSON数组格式有误，请确保输入的是有效的 JSON 字符串数组。\n例如：["关键词1","关键词2"]');
-            // 过滤非字符串项，并去重
             const keywords = [...new Set(parsed.filter(kw => typeof kw === 'string' && kw.trim() !== '').map(kw => kw.trim()))];
             saveKeywords(keywords);
             renderKeywordList();
@@ -195,7 +194,7 @@
 
     function clearKeywords() {
         if (confirm('确定要清空所有关键词吗？\n清空后将恢复默认关键词列表。')) {
-            localStorage.removeItem(STORAGE_KEY); // 删除保存的记录
+            localStorage.removeItem(STORAGE_KEY);
             renderKeywordList();
             document.querySelectorAll('.keyword-blocked-hidden').forEach(showItem);
             checkAndHideItems();
