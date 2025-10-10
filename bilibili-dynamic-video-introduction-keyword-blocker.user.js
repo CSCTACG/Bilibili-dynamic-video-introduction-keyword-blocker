@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站动态视频简介关键词屏蔽器
 // @namespace    https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker
-// @version      1.4
+// @version      1.5
 // @description  屏蔽B站动态中视频简介包含指定关键词的视频，支持自定义关键词管理
 // @author       CSCTACG
 // @match        https://t.bilibili.com/*
@@ -12,11 +12,9 @@
 (function () {
     'use strict';
 
-    // ============ 配置 ============
     const STORAGE_KEY = 'bili_keyword_blocker_keywords';
     const DEFAULT_KEYWORDS = [];
 
-    // ============ 工具函数 ============
     function getKeywords() {
         const saved = localStorage.getItem(STORAGE_KEY);
         return saved ? JSON.parse(saved) : DEFAULT_KEYWORDS;
@@ -56,7 +54,6 @@
         });
     }
 
-    // ============ GUI 面板 ============
     let panel = null;
 
     function createOrShowPanel() {
@@ -68,7 +65,7 @@
                     position: fixed;
                     top: 100px;
                     right: 20px;
-                    width: 300px;
+                    width: 320px;
                     background: #fff;
                     border: 1px solid #e0e0e0;
                     border-radius: 8px;
@@ -84,16 +81,25 @@
                             color: #999; padding: 0; width: 24px; height: 24px;
                         ">×</button>
                     </div>
-
                     <div style="margin-bottom: 12px;">
-                        <input type="text" id="new-keyword" placeholder="输入关键词（如：苏弟）"
+                        <input type="text" id="new-keyword" placeholder="请输入关键词"
                             style="width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
                         <button id="add-keyword" style="
                             margin-top: 6px; width: 100%; padding: 6px 0;
                             background: #00a1d6; color: white; border: none; border-radius: 4px; cursor: pointer;
                         ">添加关键词</button>
                     </div>
-
+                    <div style="margin-bottom: 12px; display: flex; gap: 6px;">
+                        <button id="export-keywords" style="
+                            flex: 1; padding: 6px 0; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer;
+                        ">导出</button>
+                        <button id="import-keywords" style="
+                            flex: 1; padding: 6px 0; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;
+                        ">导入</button>
+                        <button id="clear-keywords" style="
+                            flex: 1; padding: 6px 0; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;
+                        ">清空</button>
+                    </div>
                     <div style="max-height: 200px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 8px;">
                         <div id="keyword-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
                     </div>
@@ -103,6 +109,9 @@
 
             panel.querySelector('#close-panel').onclick = () => panel.style.display = 'none';
             panel.querySelector('#add-keyword').onclick = addKeyword;
+            panel.querySelector('#export-keywords').onclick = exportKeywords;
+            panel.querySelector('#import-keywords').onclick = importKeywords;
+            panel.querySelector('#clear-keywords').onclick = clearKeywords;
         }
 
         panel.style.display = 'block';
@@ -153,12 +162,51 @@
         checkAndHideItems();
     }
 
-    // ============ 注册 Tampermonkey 菜单项 ============
+    function exportKeywords() {
+        const keywords = getKeywords();
+        const text = JSON.stringify(keywords, null, 2);
+        navigator.clipboard.writeText(text).then(() => {
+            alert('关键词已复制到剪贴板！\n可直接保存为 .json 文件或分享给他人。');
+        }).catch(err => {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动复制控制台输出。\n（请在控制台查看关键词）');
+            console.log('关键词列表（JSON）:', text);
+        });
+    }
+
+    function importKeywords() {
+        const input = prompt('请粘贴关键词 JSON 数组（例如：["关键词1","关键词2"]）：');
+        if (!input) return;
+
+        try {
+            const parsed = JSON.parse(input);
+            if (!Array.isArray(parsed)) throw new Error('关键词JSON数组格式有误，请确保输入的是有效的 JSON 字符串数组。\n例如：["关键词1","关键词2"]');
+            // 过滤非字符串项，并去重
+            const keywords = [...new Set(parsed.filter(kw => typeof kw === 'string' && kw.trim() !== '').map(kw => kw.trim()))];
+            saveKeywords(keywords);
+            renderKeywordList();
+            checkAndHideItems();
+            alert('关键词导入成功！');
+        } catch (e) {
+            alert('导入失败！请确保输入的是有效的 JSON 字符串数组。\n例如：["关键词1","关键词2"]');
+            console.error('导入错误:', e);
+        }
+    }
+
+    function clearKeywords() {
+        if (confirm('确定要清空所有关键词吗？\n清空后将恢复默认关键词列表。')) {
+            localStorage.removeItem(STORAGE_KEY); // 删除保存的记录
+            renderKeywordList();
+            document.querySelectorAll('.keyword-blocked-hidden').forEach(showItem);
+            checkAndHideItems();
+            alert('已清空并恢复默认关键词。');
+        }
+    }
+
     if (typeof GM_registerMenuCommand !== 'undefined') {
         GM_registerMenuCommand('打开关键词屏蔽设置', createOrShowPanel);
     }
 
-    // ============ 初始化 ============
     function init() {
         checkAndHideItems();
         const observer = new MutationObserver(checkAndHideItems);
