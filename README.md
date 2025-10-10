@@ -19,10 +19,10 @@
 ### 方式一：直接安装（推荐）
 1. 安装 [Tampermonkey 扩展](https://www.tampermonkey.net/)
 2. 点击下方链接自动安装：
-   - [安装最新版脚本](https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker/raw/main/Bilibili-dynamic-video-introduction-keyword-blocker.user.js)
+   - [安装最新版脚本](https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker/blob/main/Bilibili-dynamic-video-introduction-keyword-blocker.user.js)
 
 ### 方式二：手动安装
-1. 下载 [`Bilibili-dynamic-video-introduction-keyword-blocker.user.js`](https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker/raw/main/Bilibili-dynamic-video-introduction-keyword-blocker.user.js)
+1. 下载 [`Bilibili-dynamic-video-introduction-keyword-blocker.user.js`](https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker/blob/main/Bilibili-dynamic-video-introduction-keyword-blocker.user.js)
 2. 双击文件或拖入浏览器 → Tampermonkey 自动弹出安装界面
 
 ##  使用指南
