@@ -2,7 +2,7 @@
 
 >  自动屏蔽 Bilibili 动态中**视频简介**包含指定关键词的动态，支持自定义关键词管理、导入导出、一键清空。
 
-![示例图：屏蔽视频简介关键词含“116864”的动态](https://imgur.com/nUGRbko)
+![示例图：屏蔽视频简介关键词含“116864”的动态](https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker/blob/main/assets/%E5%85%B3%E9%94%AE%E8%AF%8D%E5%B1%8F%E8%94%BD%E8%84%9A%E6%9C%AC%E6%95%88%E6%9E%9C%E5%9B%BE.png)
 
 ##  功能特点
 
