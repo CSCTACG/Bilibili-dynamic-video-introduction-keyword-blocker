@@ -1,220 +1,237 @@
 // ==UserScript==
 // @name         B站动态视频简介关键词屏蔽器
-// @namespace    https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker
-// @version      1.5
-// @description  屏蔽B站动态中视频简介包含指定关键词的视频，支持自定义关键词管理
-// @author       CSCTACG
+// @namespace    http://tampermonkey.net/
+// @version      1.3
+// @description  屏蔽B站动态中视频简介包含指定关键词的动态
+// @author       764542542
 // @match        https://t.bilibili.com/*
+// @icon         https://static.hdslb.com/images/0.gif
 // @grant        GM_registerMenuCommand
-// @run-at       document-idle
+// @grant        GM_setValue
+// @grant        GM_getValue
 // ==/UserScript==
 
-(function () {
+(function() {
     'use strict';
 
-    const STORAGE_KEY = 'bili_keyword_blocker_keywords';
-    const DEFAULT_KEYWORDS = [];
+    // 初始化关键词列表
+    let keywords = GM_getValue("keywords", []);
 
-    function getKeywords() {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : DEFAULT_KEYWORDS;
+    // 创建设置面板
+    function createSettingsPanel() {
+        // 检查面板是否已存在
+        if (document.getElementById('keyword-blocker-panel')) {
+            document.getElementById('keyword-blocker-panel').style.display = 'block';
+            return;
+        }
+
+        const panel = document.createElement('div');
+        panel.id = 'keyword-blocker-panel';
+        panel.innerHTML = `
+            <div style="position: fixed; top: 20%; left: 50%; transform: translateX(-50%); width: 400px; background: white; border: 1px solid #ccc; border-radius: 8px; padding: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 10000; font-family: Arial, sans-serif;">
+                <h3 style="margin: 0 0 15px; text-align: center;">关键词屏蔽设置</h3>
+                <div style="display: flex; margin-bottom: 10px;">
+                    <input type="text" id="keyword-input" placeholder="输入关键词" style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px 0 0 4px;">
+                    <button id="add-keyword-btn" style="background: #00a1d6; color: white; border: none; padding: 8px 15px; border-radius: 0 4px 4px 0; cursor: pointer;">添加</button>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                    <button id="import-btn" style="background: #5daf34; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px;">导入</button>
+                    <button id="export-btn" style="background: #5daf34; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">导出</button>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <button id="clear-btn" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">清空</button>
+                </div>
+                <div id="keyword-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 4px;">
+                    ${keywords.map((keyword, index) => `<div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">${keyword}<button data-index="${index}" class="delete-keyword-btn" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">删除</button></div>`).join('')}
+                </div>
+                <div style="text-align: center; margin-top: 15px;">
+                    <button id="close-panel-btn" style="background: #95a5a6; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">关闭</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+
+        // 添加事件监听器
+        document.getElementById('add-keyword-btn').addEventListener('click', addKeyword);
+        document.getElementById('keyword-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addKeyword();
+        });
+        document.getElementById('import-btn').addEventListener('click', importKeywords);
+        document.getElementById('export-btn').addEventListener('click', exportKeywords);
+        document.getElementById('clear-btn').addEventListener('click', clearKeywords);
+        document.getElementById('close-panel-btn').addEventListener('click', () => panel.remove());
+
+        // 为删除按钮添加事件监听器
+        document.querySelectorAll('.delete-keyword-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const index = this.getAttribute('data-index');
+                deleteKeyword(index);
+            });
+        });
     }
 
-    function saveKeywords(keywords) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(keywords));
-    }
-
-    function hideItem(item) {
-        if (!item.classList.contains('keyword-blocked-hidden')) {
-            item.style.display = 'none';
-            item.classList.add('keyword-blocked-hidden');
+    // 添加关键词
+    function addKeyword() {
+        const input = document.getElementById('keyword-input');
+        const keyword = input.value.trim();
+        if (keyword && !keywords.includes(keyword)) {
+            keywords.push(keyword);
+            GM_setValue("keywords", keywords);
+            input.value = '';
+            updateKeywordList();
         }
     }
 
-    function showItem(item) {
-        item.style.display = '';
-        item.classList.remove('keyword-blocked-hidden');
+    // 删除关键词
+    function deleteKeyword(index) {
+        keywords.splice(index, 1);
+        GM_setValue("keywords", keywords);
+        updateKeywordList();
     }
 
-    function checkAndHideItems() {
-        const keywords = getKeywords();
-        if (keywords.length === 0) return;
+    // 清空关键词
+    function clearKeywords() {
+        if (confirm("确定要清空所有关键词吗？")) {
+            keywords = [];
+            GM_setValue("keywords", keywords);
+            updateKeywordList();
+        }
+    }
 
-        document.querySelectorAll('.bili-dyn-card-video__desc').forEach(desc => {
-            const text = desc.textContent || '';
-            const item = desc.closest('.bili-dyn-item');
-            if (!item) return;
+    // 导入关键词
+    function importKeywords() {
+        document.getElementById('import-file').click();
+        document.getElementById('import-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedKeywords = JSON.parse(e.target.result);
+                        if (Array.isArray(importedKeywords)) {
+                            keywords = importedKeywords;
+                            GM_setValue("keywords", keywords);
+                            updateKeywordList();
+                            alert("导入成功！");
+                        } else {
+                            alert("无效的JSON格式！");
+                        }
+                    } catch (error) {
+                        alert("导入失败，请检查JSON格式！");
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }, { once: true });
+    }
 
-            const shouldHide = keywords.some(kw => kw && text.includes(kw));
-            if (shouldHide) {
-                hideItem(item);
-            } else if (item.classList.contains('keyword-blocked-hidden')) {
-                showItem(item);
+    // 导出关键词
+    function exportKeywords() {
+        const dataStr = JSON.stringify(keywords, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'keywords.json';
+        link.click();
+    }
+
+    // 更新关键词列表显示
+    function updateKeywordList() {
+        const listContainer = document.getElementById('keyword-list');
+        listContainer.innerHTML = keywords.map((keyword, index) => 
+            `<div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">${keyword}<button data-index="${index}" class="delete-keyword-btn" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">删除</button></div>`
+        ).join('');
+
+        // 重新为删除按钮添加事件监听器
+        document.querySelectorAll('.delete-keyword-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const index = this.getAttribute('data-index');
+                deleteKeyword(index);
+            });
+        });
+    }
+
+    // 检查并隐藏包含关键词的动态
+    function checkAndHideDynamic() {
+        // 选择视频动态的描述元素
+        const videoDescElements = document.querySelectorAll('.bili-dyn-card-video__desc:not([data-checked])');
+        // 创建正则表达式，将关键词转义并用|连接
+        if (keywords.length > 0) {
+            const escapedKeywords = keywords.map(keyword => keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            const regex = new RegExp(escapedKeywords.join('|'));
+            
+            videoDescElements.forEach(descElement => {
+                descElement.dataset.checked = 'true'; // 标记为已检查
+                const descText = descElement.textContent || descElement.innerText;
+                // 使用正则表达式一次性检查所有关键词
+                if (regex.test(descText)) {
+                    // 隐藏整个动态
+                    const dynamicCard = descElement.closest('.bili-dyn-item');
+                    if (dynamicCard) {
+                        dynamicCard.style.display = 'none';
+                    }
+                }
+            });
+        } else {
+            // 如果没有关键词，只标记元素为已检查，不隐藏任何内容
+            videoDescElements.forEach(descElement => {
+                descElement.dataset.checked = 'true';
+            });
+        }
+    }
+
+    // 注册菜单命令
+    GM_registerMenuCommand("打开关键词屏蔽设置", createSettingsPanel);
+
+    // 初次加载时检查动态
+    setTimeout(checkAndHideDynamic, 1000);
+    
+    // 页面完全加载后再次检查，确保所有动态都处理完成
+    window.addEventListener('load', function() {
+        setTimeout(checkAndHideDynamic, 2000);
+    });
+
+    // 防抖函数，避免频繁执行
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // 使用防抖优化的检查函数
+    const debouncedCheckAndHideDynamic = debounce(checkAndHideDynamic, 300);
+
+    // 使用 MutationObserver 监听动态加载
+    const observer = new MutationObserver(function(mutations) {
+        let shouldCheck = false;
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) { // 元素节点
+                        // 检查新增节点或其子节点是否包含视频动态描述元素
+                        if (node.querySelector && (node.querySelector('.bili-dyn-card-video__desc'))) {
+                            shouldCheck = true;
+                        }
+                    }
+                });
             }
         });
-    }
-
-    let panel = null;
-
-    function createOrShowPanel() {
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.id = 'keyword-blocker-panel';
-            panel.innerHTML = `
-                <div style="
-                    position: fixed;
-                    top: 100px;
-                    right: 20px;
-                    width: 320px;
-                    background: #fff;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    z-index: 2147483647;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-                    padding: 16px;
-                ">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <h3 style="margin: 0; font-size: 16px; color: #222;">关键词屏蔽设置</h3>
-                        <button id="close-panel" style="
-                            background: none; border: none; font-size: 18px; cursor: pointer;
-                            color: #999; padding: 0; width: 24px; height: 24px;
-                        ">×</button>
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                        <input type="text" id="new-keyword" placeholder="请输入关键词"
-                            style="width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-                        <button id="add-keyword" style="
-                            margin-top: 6px; width: 100%; padding: 6px 0;
-                            background: #00a1d6; color: white; border: none; border-radius: 4px; cursor: pointer;
-                        ">添加关键词</button>
-                    </div>
-                    <div style="margin-bottom: 12px; display: flex; gap: 6px;">
-                        <button id="export-keywords" style="
-                            flex: 1; padding: 6px 0; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer;
-                        ">导出</button>
-                        <button id="import-keywords" style="
-                            flex: 1; padding: 6px 0; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer;
-                        ">导入</button>
-                        <button id="clear-keywords" style="
-                            flex: 1; padding: 6px 0; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;
-                        ">清空</button>
-                    </div>
-                    <div style="max-height: 200px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 8px;">
-                        <div id="keyword-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(panel);
-
-            panel.querySelector('#close-panel').onclick = () => panel.style.display = 'none';
-            panel.querySelector('#add-keyword').onclick = addKeyword;
-            panel.querySelector('#export-keywords').onclick = exportKeywords;
-            panel.querySelector('#import-keywords').onclick = importKeywords;
-            panel.querySelector('#clear-keywords').onclick = clearKeywords;
+        if (shouldCheck) {
+            debouncedCheckAndHideDynamic(); // 使用防抖函数
         }
+    });
 
-        panel.style.display = 'block';
-        renderKeywordList();
-    }
-
-    function renderKeywordList() {
-        const list = document.getElementById('keyword-list');
-        const keywords = getKeywords();
-        list.innerHTML = '';
-        keywords.forEach((kw, index) => {
-            const item = document.createElement('div');
-            item.style.display = 'flex';
-            item.style.justifyContent = 'space-between';
-            item.style.alignItems = 'center';
-            item.innerHTML = `
-                <span style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 13px;">${kw}</span>
-                <button data-index="${index}" style="
-                    background: #ff4d4d; color: white; border: none; border-radius: 3px;
-                    padding: 2px 6px; font-size: 12px; cursor: pointer;
-                ">删除</button>
-            `;
-            item.querySelector('button').onclick = () => removeKeyword(index);
-            list.appendChild(item);
-        });
-    }
-
-    function addKeyword() {
-        const input = document.getElementById('new-keyword');
-        const value = input.value.trim();
-        if (!value) return;
-        const keywords = getKeywords();
-        if (!keywords.includes(value)) {
-            keywords.push(value);
-            saveKeywords(keywords);
-            input.value = '';
-            renderKeywordList();
-            checkAndHideItems();
-        }
-    }
-
-    function removeKeyword(index) {
-        const keywords = getKeywords();
-        keywords.splice(index, 1);
-        saveKeywords(keywords);
-        renderKeywordList();
-        document.querySelectorAll('.keyword-blocked-hidden').forEach(showItem);
-        checkAndHideItems();
-    }
-
-    function exportKeywords() {
-        const keywords = getKeywords();
-        const text = JSON.stringify(keywords, null, 2);
-        navigator.clipboard.writeText(text).then(() => {
-            alert('关键词已复制到剪贴板！\n可直接保存为 .json 文件或分享给他人。');
-        }).catch(err => {
-            console.error('复制失败:', err);
-            alert('复制失败，请手动复制控制台输出。\n（请在控制台查看关键词）');
-            console.log('关键词列表（JSON）:', text);
-        });
-    }
-
-    function importKeywords() {
-        const input = prompt('请粘贴关键词 JSON 数组（例如：["关键词1","关键词2"]）：');
-        if (!input) return;
-
-        try {
-            const parsed = JSON.parse(input);
-            if (!Array.isArray(parsed)) throw new Error('关键词JSON数组格式有误，请确保输入的是有效的 JSON 字符串数组。\n例如：["关键词1","关键词2"]');
-            const keywords = [...new Set(parsed.filter(kw => typeof kw === 'string' && kw.trim() !== '').map(kw => kw.trim()))];
-            saveKeywords(keywords);
-            renderKeywordList();
-            checkAndHideItems();
-            alert('关键词导入成功！');
-        } catch (e) {
-            alert('导入失败！请确保输入的是有效的 JSON 字符串数组。\n例如：["关键词1","关键词2"]');
-            console.error('导入错误:', e);
-        }
-    }
-
-    function clearKeywords() {
-        if (confirm('确定要清空所有关键词吗？\n清空后将恢复默认关键词列表。')) {
-            localStorage.removeItem(STORAGE_KEY);
-            renderKeywordList();
-            document.querySelectorAll('.keyword-blocked-hidden').forEach(showItem);
-            checkAndHideItems();
-            alert('已清空并恢复默认关键词。');
-        }
-    }
-
-    if (typeof GM_registerMenuCommand !== 'undefined') {
-        GM_registerMenuCommand('打开关键词屏蔽设置', createOrShowPanel);
-    }
-
-    function init() {
-        checkAndHideItems();
-        const observer = new MutationObserver(checkAndHideItems);
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    // 开始监听
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
 })();
