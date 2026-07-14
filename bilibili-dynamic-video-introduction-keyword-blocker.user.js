@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站动态视频简介关键词屏蔽器
 // @namespace    https://github.com/CSCTACG/Bilibili-dynamic-video-introduction-keyword-blocker
-// @version      1.5
+// @version      1.6
 // @description  屏蔽B站动态中视频简介包含指定关键词的视频，支持自定义关键词管理
 // @author       CSCTACG
 // @match        https://t.bilibili.com/*
