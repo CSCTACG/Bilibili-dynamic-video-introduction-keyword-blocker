@@ -7,6 +7,7 @@
 // @match        https://t.bilibili.com/*
 // @grant        GM_registerMenuCommand
 // @run-at       document-idle
+// @license      MIT
 // ==/UserScript==
 
 (function () {
